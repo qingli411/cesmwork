@@ -1,0 +1,41 @@
+/*
+  calc_cfcsol
+  Compute CFC 12 Solubility in seawater, 
+  convert concentration to partial pressure
+  ref: Warner & Weiss (1985) , Deep Sea Research, vol32
+  
+  Original author: J-C Dutay - LSCE
+  INPUT:
+  TEMP: temperature (degree Celsius)
+  SALT: salinity  orig: (o/oo) (multiply by 1000 to get psu)
+  CFC
+  1 pptv = 1 part per trillion = 10^-12 atm = 1 picoatm
+*/
+//-----------------------------------------------------------------------
+//---- constants
+*T0_Kelvin = 273.16;
+*c1000     = 1000.0;
+
+*a1 = -218.0971;
+*a2 =  298.9702;
+*a3 =  113.8049;
+*a4 =   -1.39165;
+*b1 =   -0.143566;
+*b2 =    0.091015;
+*b3 =   -0.0153924;
+
+*WORK = ((TEMP + T0_Kelvin) * 0.01);
+
+//-----------------------------------------------------------------------
+//---- coefficient for solubility in  mol/l/atm
+*SOLUBILITY_CFC = exp ( a1+ a2 / WORK + a3 * log ( WORK )+ a4 * WORK * WORK + SALT * ( ( b3 * WORK + b2 ) * WORK + b1 ) );
+
+//-----------------------------------------------------------------------
+//---- conversion from mol/(l * atm) to mol/(m^3 * atm) to mol/(m3 * pptv)
+SOLUBILITY_CFC = c1000 * SOLUBILITY_CFC;
+SOLUBILITY_CFC = 1.0e-12 * SOLUBILITY_CFC;
+
+
+pCFC12 = CFC12 * 1.0e-9 / SOLUBILITY_CFC;
+pCFC12@long_name = "pCFC-12";
+pCFC12@units     = "patm";

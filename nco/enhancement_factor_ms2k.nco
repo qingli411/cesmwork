@@ -1,0 +1,23 @@
+/*
+  Enhancement factor for the turbulent velocity scale in KPP
+  ref: McWilliams and Sullivan, 2000
+
+  Qing Li, 20140720
+
+ INPUT:
+      LANGMT: Turbulent Langmuir number, La_{t}
+ OUTPUT:
+      EHMFT: Enhancement factor
+*/
+
+//-----------------------------------------------------------------------
+//---- constants
+*ms2k_c = 0.08;
+
+//-----------------------------------------------------------------------
+//---- enhancement factor
+*la = LANGMT;
+EHMFT = sqrt(1+ms2k_c*la^(-4));  
+
+EHMFT@long_name = "Enhancement factor";
+EHMFT@units     = "1";

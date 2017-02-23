@@ -1,0 +1,90 @@
+#!/bin/csh
+# 
+# This script postprocesses WW3 history file
+#
+# Li Qing, 20150212
+#
+
+if ( $#argv < 4 || $#argv > 5 ) then
+cat << EOF
+USAGE:
+	cesm_wave_postproc [case name] [start year] [end year] [type] [data path]
+		type = 1: add time dimension, concatenate data together
+		data path = "pwork": data saved in /glade/p/work
+		data path = "scratch": data saved in /glade/scratch
+EOF
+exit -1;
+endif
+
+	set casename	= $1
+	@ yrini = $2
+	@ yrend = $3
+	@ type	= $4
+	if ( $#argv == 5 ) then
+		set dptype	= $5
+		if ( ${dptype} == "pwork" ) then
+			set datapath	= /glade/p/work/qingli/archive/${casename}/wav/hist
+		else if ( ${dptype} == "scratch" ) then
+			set datapath	= /glade/scratch/qingli/archive/${casename}/wav/hist
+		else
+			echo "cesm_wave_postproc: error in data path type..."
+			exit -1
+		endif
+	else if ( $#argv == 4) then
+		set datapath	= /glade/scratch/qingli/archive/${casename}/wav/hist
+	endif
+	set datato	= /glade/p/work/qingli/data/${casename}
+	set prefixi	= ${casename}.ww3.hi
+	set tmpdir	= $$
+	set workdir	= /glade/scratch/qingli/tmp
+	set yrini_str	= `printf %04d $yrini`
+	set yrend_str	= `printf %04d $yrend`
+
+	cd $workdir
+	mkdir ${tmpdir}
+	cd ${tmpdir}
+
+	echo "- START -"
+	if ( $type == 1) then
+		set filename	= ${prefixi}.${yrini_str}.${yrend_str}.nc
+		set NCLSCRIPT	= /glade/u/home/qingli/work/process_ww3_data/add_dimension_full.ncl
+		set cmd		= ncl
+	endif
+
+	set yr = $yrini
+	@ idx = 1
+	while ( $yr <= $yrend )
+		set yr_str = ` printf %04d $yr `
+		echo "Year $yr_str ..."
+		foreach mon ( 01 02 03 04 05 06 07 08 09 10 11 12 )
+		echo "Month $mon ..."
+			set file_in = ${prefixi}.${yr_str}-${mon}
+			foreach f ( ${datapath}/${file_in}-* )
+				set n = `echo $f | awk '{print length($0)}'`
+				@ dn = $n - 10	# get character position of dd
+				set dd = `echo $f | awk -v ncount=$dn '{print substr($0,ncount,2)}'`
+				@ sn = $n - 7	# get character position of sssss
+				set sssss = `echo $f | awk -v ncount=$sn '{print substr($0,ncount,5)}'`
+				set file_out = tmp.${yr_str}-${mon}-${dd}-${sssss}.nc
+				echo ${file_out}
+				eval ${cmd} fileIn=\\\"${f}\\\" fileOut=\\\"${file_out}\\\" yyyy_str=\\\"${yr_str}\\\" mm_str=\\\"${mon}\\\" dd_str=\\\"${dd}\\\" sssss_str=\\\"${sssss}\\\" ${NCLSCRIPT}
+			end
+		end
+		@ yr ++
+	end
+	echo "Concatenating data ..."
+	ncrcat -O -h tmp.*.nc out.nc
+
+# Move data
+	echo "Moving data to path: $datato ..."
+	if ( ! -e ${datato} ) then
+		mkdir ${datato}
+	endif
+	mv out.nc ${datato}/${filename}
+	if ( $? == 0) then
+		cd ..
+		rm -rf ${tmpdir}
+		echo "- FINISHED -"
+	else
+		echo "- NOT FINISHED -"
+	endif

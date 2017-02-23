@@ -1,0 +1,45 @@
+/*
+  Vertical turbulent velocity scaling
+  ref: Van Roekel et al., 2012
+
+  Qing Li, 20140720
+
+ INPUT:
+      LANGMT: La_t
+      LAPROJ: La_{proj}
+      LASL:   La_{SL}
+      LASLPJ: La_{SL,proj}
+      ALPHAL: angle between wind and LCs
+      ALPHALS: angle between wind and LCs, surface Stokes drift
+ OUTPUT:
+      VKE1: VKE scaling 1
+      VKE2: VKE scaling 2
+      VKE3: VKE scaling 3
+      VKE4: VKE scaling 3
+*/
+
+//-----------------------------------------------------------------------
+//---- constants
+*vr12_c1_1 = 3.1;
+*vr12_c2_1 = 5.7;
+*vr12_c1_2 = 1.5;
+*vr12_c2_2 = 5.4;
+
+//-----------------------------------------------------------------------
+//---- vertical turbulent kinetic energy scaling
+*la1 = LANGMT;
+VKE1 = 0.6*(1+(vr12_c1_1*la1)^(-2)+(vr12_c2_1*la1)^(-4));
+
+*la2 = LAPROJ;
+VKE2 = 0.6*(cos(ALPHALS))^2*(1+(vr12_c1_1*la2)^(-2)+(vr12_c2_2*la2)^(-4));
+
+*la3 = LASL;
+VKE3 = 0.6*(1+(vr12_c1_2*la3)^(-2)+(vr12_c2_2*la3)^(-4));  
+
+*la4 = LASLPJ;
+VKE4 = 0.6*(cos(ALPHAL))^2*(1+(vr12_c1_2*la4)^(-2)+(vr12_c2_2*la4)^(-4));  
+
+VKE1@long_name = "Vertical turbulent kinetic energy";
+VKE2@long_name = "Vertical turbulent kinetic energy";
+VKE3@long_name = "Vertical turbulent kinetic energy";
+VKE4@long_name = "Vertical turbulent kinetic energy";

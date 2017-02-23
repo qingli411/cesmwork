@@ -1,0 +1,100 @@
+#!/bin/csh
+# 
+# This script get time-averaged data from CESM-WW3 output
+#
+# Li Qing, 20140204
+#
+
+if ( $#argv < 4 || $#argv > 5 ) then
+cat << EOF
+USAGE:
+	cesm_wave_avg [case name] [start year] [end year] [type] [data path]
+		type = 1: monthly mean & monthly climatology
+		type = 2: 6 hourly climatology
+		data path = "pwork": data saved in /glade/p/work
+		data path = "scratch": data saved in /glade/scratch
+EOF
+exit -1;
+endif
+
+	set casename	= $1
+	@ yrini = $2
+	@ yrend = $3
+	@ type	= $4
+	if ( $#argv == 5 ) then
+		set dptype	= $5
+		if ( ${dptype} == "pwork" ) then
+			set datapath	= /glade/p/work/qingli/archive/${casename}/wav/hist
+		else if ( ${dptype} == "scratch" ) then
+			set datapath	= /glade/scratch/qingli/archive/${casename}/wav/hist
+		else
+			echo "cesm_wave_avg: error in data path type..."
+			exit -1
+		endif
+	else if ( $#argv == 4) then
+		set datapath	= /glade/scratch/qingli/archive/${casename}/wav/hist
+	endif
+	set datato	= /glade/p/work/qingli/data/${casename}
+	set prefixi	= ${casename}.ww3.hi
+	set tmpdir	= $$
+	set workdir	= /glade/scratch/qingli/tmp
+	set yrini_str	= `printf %04d $yrini`
+	set yrend_str	= `printf %04d $yrend`
+	set prefixo	= ${prefixi}.${yrini_str}.${yrend_str}
+
+	cd $workdir
+	mkdir ${tmpdir}
+	cd ${tmpdir}
+
+	echo "- START -"
+	if ( $type == 1) then
+		@ totn = ($yrend - $yrini + 1) * 12
+		foreach mon ( 01 02 03 04 05 06 07 08 09 10 11 12 )
+			echo "Month $mon ..."
+			set yr = $yrini
+			@ idx = 1
+			while ( $yr <= $yrend )
+				set yr_str = ` printf %04d $yr `
+				set file_in = ${prefixi}.${yr_str}-${mon}
+				ncea -O -h ${datapath}/${file_in}-* ${file_in}.nc
+				@ yr ++
+			end
+			ncea -O -h ${prefixi}.????-${mon}.nc ${prefixo}.${mon}.nc
+		end
+		ncea -O -h ${prefixo}.??.nc ${prefixo}.nc
+	endif
+	if ( $type == 2) then
+		set file_in = ${prefixi}.${yrini_str}
+		foreach f ( ${datapath}/${file_in}-* )
+			set n = `echo $f | awk '{print length($0)}'`
+			@ mn = $n - 13  # get character position of mm
+			set mon = `echo $f | awk -v ncount=$mn '{print substr($0,ncount,2)}'`
+			@ dn = $n - 10	# get character position of dd
+			set dd = `echo $f | awk -v ncount=$dn '{print substr($0,ncount,2)}'`
+			@ sn = $n - 7	# get character position of sssss
+			set sssss = `echo $f | awk -v ncount=$sn '{print substr($0,ncount,5)}'`
+			set file_out = tmp.${yrini_str}-${mon}-${dd}-${sssss}.nc
+			echo ${file_out}
+			set yr = $yrini
+			while ( $yr <= $yrend )
+				set yr_str = ` printf %04d $yr `
+				ln -s ${datapath}/${prefixi}.${yr_str}-${mon}-${dd}-${sssss}.nc ./
+				@ yr ++
+			end
+			ncea -O -h ${prefixi}.????-${mon}-${dd}-${sssss}.nc ${prefixo}-${mon}-${dd}-${sssss}.nc
+			rm -f ${prefixi}.????-${mon}-${dd}-${sssss}.nc
+		end
+	endif
+# Move data
+	echo "Moving data to path: $datato ..."
+	if ( ! -e ${datato} ) then
+		mkdir ${datato}
+	endif
+	mv *.nc ${datato}/
+	if ( $? == 0) then
+		cd ..
+		rm -rf ${tmpdir}
+		echo "- FINISHED -"
+	else
+		echo "- NOT FINISHED -"
+	endif

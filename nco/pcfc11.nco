@@ -1,0 +1,45 @@
+/*
+calc_cfcsol
+  CFC 11 and 12 Solubilities in seawater
+  ref: Warner & Weiss (1985) , Deep Sea Research, vol32
+
+  Original author: J-C Dutay - LSCE
+  translated from cfc11_mod.F90 (MCL, 2011)
+
+ INPUT:
+      TEMP: temperature (degree Celsius)
+      SALT: salinity  orig: (o/oo) (multiply by 1000 to get psu)
+      kn: 11 = CFC11, 12 = CFC12
+ OUTPUT:
+ SOLUBILITY_CFC: returned value in mol/m3/pptv
+                 1 pptv = 1 part per trillion = 10^-12 atm = 1 picoatm
+*/
+
+//-----------------------------------------------------------------------
+//---- constants
+*T0_Kelvin = 273.16;
+*c1000     = 1000.0;
+
+*a1 = -229.9261;
+*a2 =  319.6552;
+*a3 =  119.4471;
+*a4 =   -1.39165;
+*b1 =   -0.142382;
+*b2 =    0.091459;
+*b3 =   -0.0157274;
+
+*WORK = ((TEMP + T0_Kelvin) * 0.01);
+
+//-----------------------------------------------------------------------
+//---- coefficient for solubility in  mol/l/atm
+*SOLUBILITY_CFC = exp ( a1+ a2 / WORK + a3 * log ( WORK )+ a4 * WORK * WORK + SALT * ( ( b3 * WORK + b2 ) * WORK + b1 ) );
+
+//-----------------------------------------------------------------------
+//---- conversion from mol/(l * atm) to mol/(m^3 * atm) to mol/(m3 * pptv)
+SOLUBILITY_CFC = c1000 * SOLUBILITY_CFC;
+SOLUBILITY_CFC = 1.0e-12 * SOLUBILITY_CFC;
+
+
+pCFC11 = CFC11 * 1.0e-9 / SOLUBILITY_CFC;
+pCFC11@long_name = "pCFC-11";
+pCFC11@units     = "patm";

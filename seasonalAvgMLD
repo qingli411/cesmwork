@@ -1,0 +1,20 @@
+#!/bin/bash
+# get summer and winter average MLD from monthly
+# MLD output from cesm_ocean_get
+#
+# Qing Li, 05/18/15
+
+export casen=$1 
+export yyyy1=`printf %04d $2`
+export yyyy2=`printf %04d $3`
+
+export datdir=/glade/p/work/qingli/data/${casen}/
+export currentdir=`pwd`
+
+cd ${datdir}
+
+ncea -O ${casen}.pop.h.MLD.${yyyy1}.${yyyy2}.01.nc ${casen}.pop.h.MLD.${yyyy1}.${yyyy2}.02.nc ${casen}.pop.h.MLD.${yyyy1}.${yyyy2}.03.nc ${casen}.pop.h.MLD.${yyyy1}.${yyyy2}.NW.nc
+
+ncea -O ${casen}.pop.h.MLD.${yyyy1}.${yyyy2}.07.nc ${casen}.pop.h.MLD.${yyyy1}.${yyyy2}.08.nc ${casen}.pop.h.MLD.${yyyy1}.${yyyy2}.09.nc ${casen}.pop.h.MLD.${yyyy1}.${yyyy2}.NS.nc
+
+cd ${currentdir}

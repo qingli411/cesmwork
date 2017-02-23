@@ -1,0 +1,33 @@
+#!/bin/bash
+# this script calculate pCFC using NCO 
+#
+# Qing Li, 141212
+
+export CASEN=$1
+export STY=`printf %04d $2`
+export EDY=`printf %04d $3`
+
+export DATADIR=/glade/u/home/qingli/pwork/data
+export NCO_UTIL=/glade/u/home/qingli/work/nco
+export POPHIST=${DATADIR}/${CASEN}/${CASEN}.pop.avgh.${STY}.${EDY}.nc
+
+if [ ! -e ${POPHIST} ]; then
+	cesm_ocean_avg $1 $2 $3 1 scratch
+fi
+if [ $? != 0 ]; then
+	echo "No POP History File"
+	exit -1;
+fi
+
+echo "FILE_IN=${POPHIST}"
+
+for CFC in pcfc11 pcfc12; do
+	export FILE_OUT1=${DATADIR}/${CASEN}/${CASEN}.${CFC}.${STY}.${EDY}.nc
+	if [ -e ${FILE_OUT1} ]; then
+		rm ${FILE_OUT1}
+	fi
+
+	ncap2 -A -v -S ${NCO_UTIL}/${CFC}.nco ${POPHIST} ${FILE_OUT1}
+
+done
+

@@ -1,0 +1,25 @@
+#!/bin/bash
+# this script do zonal average using za
+
+
+export CASEN=$1
+export STY=`printf %04d $2`
+export EDY=`printf %04d $3`
+export DATADIR=/glade/u/home/qingli/pwork/data
+export FILE_IN=${DATADIR}/${CASEN}/${CASEN}.pop.acyc.${STY}.${EDY}.nc
+echo "FILE_IN=${FILE_IN}"
+export FILE_OUT=${DATADIR}/${CASEN}/za.${CASEN}.pop.acyc.${STY}.${EDY}.nc
+
+if [[ ${CASEN} == *1d* ]] || [[ ${CASEN} == *gx1* ]]; then
+	export RMASK=${DATADIR}/region_mask/PacAtlInd_REGION_MASK_gx1v6.nc
+else
+	export RMASK=${DATADIR}/region_mask/PacAtlInd_REGION_MASK_gx3v7.nc
+fi
+export ZA_BASIN_LIST=Global,Pacific,Indian,Atlantic
+
+if [ -e ${FILE_OUT} ]; then
+	rm ${FILE_OUT}
+fi
+
+za -rmask_file ${RMASK} -o ${FILE_OUT} ${FILE_IN}
+

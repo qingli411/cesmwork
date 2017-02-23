@@ -1,0 +1,80 @@
+#!/bin/csh
+# 
+# This script postprocesses POP nday1 history file
+#
+# Li Qing, 20150804
+#
+
+if ( $#argv < 4 || $#argv > 5) then
+cat << EOF
+USAGE:
+	cesm_ocean_nday1 [case name] [start year] [end year] [type] [data path]
+		type = 1: regional average, concatenate data together
+EOF
+exit -1;
+endif
+
+	set casename	= $1
+	@ yrini = $2
+	@ yrend = $3
+	@ type	= $4
+	if ( $#argv == 5 ) then
+		set dptype	= $5
+		if ( ${dptype} == "pwork" ) then
+			set datapath	= /glade/p/work/qingli/archive/${casename}/ocn/hist
+		else if ( ${dptype} == "scratch" ) then
+			set datapath	= /glade/scratch/qingli/archive/${casename}/ocn/hist
+		else
+			echo "cesm_ocean_avg: error in data path type..."
+			exit -1
+		endif
+	else if ( $#argv == 4) then
+		set datapath	= /glade/scratch/qingli/archive/${casename}/ocn/hist
+	endif
+	set datato	= /glade/p/work/qingli/data/${casename}
+	set prefixi	= ${casename}.pop.nday1
+	set tmpdir	= $$
+	set workdir	= /glade/scratch/qingli/tmp
+	set yrini_str	= `printf %04d $yrini`
+	set yrend_str	= `printf %04d $yrend`
+	set region 	= SIND
+
+	cd $workdir
+	mkdir ${tmpdir}
+	cd ${tmpdir}
+
+	echo "- START -"
+	if ( $type == 1) then
+		set filename	= ${prefixi}.${region}.${yrini_str}.${yrend_str}.nc
+		set NCLSCRIPT	= /glade/u/home/qingli/work/process_pop/nday1/get_timeseries_nday1.ncl
+		set cmd		= ncl
+	endif
+
+	set yr = $yrini
+	set yrini_str = ` printf %04d $yrini `
+	@ idx = 1
+	while ( $yr <= $yrend )
+		set yr_str = ` printf %04d $yr `
+		echo "Year $yr_str ..."
+		foreach mon ( 01 02 03 04 05 06 07 08 09 10 11 12 )
+			echo "Month $mon ..."
+			eval ${cmd} casen=\\\"{$casename}\\\" yyyyst=\\\"${yrini_str}\\\" yyyy=\\\"${yr_str}\\\" mm=\\\"${mon}\\\" diri=\\\"${datapath}\\\" region=\\\"${region}\\\" ${NCLSCRIPT}
+		end
+		@ yr ++
+	end
+	echo "Concatenating data ..."
+	ncrcat -O -h ${casename}.*nday1*.nc out.nc
+
+# Move data
+	echo "Moving data to path: $datato ..."
+	if ( ! -e ${datato} ) then
+		mkdir ${datato}
+	endif
+	mv out.nc ${datato}/${filename}
+	if ( $? == 0) then
+		cd ..
+		rm -rf ${tmpdir}
+		echo "- FINISHED -"
+	else
+		echo "- NOT FINISHED -"
+	endif

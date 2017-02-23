@@ -1,0 +1,42 @@
+#!/bin/csh
+# 
+# This script get annual averaged history files from 
+# monthly output
+#
+# Qing Li, 20150713
+#
+
+if ( $#argv < 2 || $#argv > 3) then
+cat << EOF
+USAGE:
+	cesm_ocean_mon2ann [case name] [year]  [data path]
+		data path = "pwork": data saved in /glade/p/work
+		data path = "scratch": data saved in /glade/scratch
+EOF
+exit -1;
+endif
+
+	set casename	= $1
+	@ yrini = $2
+	if ( $#argv == 3 ) then
+		set dptype	= $3
+		if ( ${dptype} == "pwork" ) then
+			set datapath	= /glade/p/work/qingli/archive/${casename}/ocn/hist
+		else if ( ${dptype} == "scratch" ) then
+			set datapath	= /glade/scratch/qingli/archive/${casename}/ocn/hist
+		else
+			echo "cesm_ocean_mon2ann: error in data path type..."
+			exit -1
+		endif
+	else if ( $#argv == 2) then
+		set datapath	= /glade/scratch/qingli/archive/${casename}/ocn/hist
+	endif
+	set prefixi	= ${casename}.pop.h
+	set yrini_str	= `printf %04d $yrini`
+	set outfile	= ${prefixi}.${yrini_str}.nc
+
+	echo " Year ${yrini_str} "
+
+	cd datapath
+	ncra -O -h ${prefixi}.${yrini_str}-??.nc ${outfile}	
+

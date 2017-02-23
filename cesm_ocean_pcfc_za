@@ -1,0 +1,47 @@
+#!/bin/bash
+# this script calculate pCFC using NCO and do zonal average using za
+#
+# Qing Li, 5/21/14
+
+export CASEN=$1
+export STY=`printf %04d $2`
+export EDY=`printf %04d $3`
+
+export DATADIR=/glade/u/home/qingli/pwork/data
+export NCO_UTIL=/glade/u/home/qingli/work/nco
+if [[ ${CASEN} == *1d* ]] || [[ ${CASEN} == *gx1* ]]; then
+	export RMASK=${DATADIR}/region_mask/PacAtlInd_REGION_MASK_gx1v6.nc
+else
+	export RMASK=${DATADIR}/region_mask/PacAtlInd_REGION_MASK_gx3v7.nc
+fi
+export ZA_BASIN_LIST=Global,Pacific,Indian,Atlantic
+export POPHIST=${DATADIR}/${CASEN}/${CASEN}.pop.avgh.${STY}.${EDY}.nc
+
+if [ ! -e ${POPHIST} ]; then
+	cesm_ocean_avg $1 $2 $3 1 scratch
+fi
+if [ $? != 0 ]; then
+	echo "No POP History File"
+	exit -1;
+fi
+
+echo "FILE_IN=${POPHIST}"
+
+for CFC in pcfc11 pcfc12; do
+	export FILE_OUT1=${DATADIR}/${CASEN}/${CASEN}.${CFC}.${STY}.${EDY}.nc
+	if [ -e ${FILE_OUT1} ]; then
+		rm ${FILE_OUT1}
+	fi
+
+	ncap2 -A -v -S ${NCO_UTIL}/${CFC}.nco ${POPHIST} ${FILE_OUT1}
+
+	export FILE_IN2=${FILE_OUT1}
+	export FILE_OUT2=${DATADIR}/${CASEN}/za.${CASEN}.${CFC}.${STY}.${EDY}.nc
+	if [ -e ${FILE_OUT2} ]; then
+		rm ${FILE_OUT2}
+	fi
+
+	ncks -A -v KMT,ULAT,ULONG,TAREA,UAREA,dz ${POPHIST} ${FILE_IN2}
+	za -rmask_file ${RMASK} -o ${FILE_OUT2} ${FILE_IN2}
+done
+

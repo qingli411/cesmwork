@@ -1,0 +1,32 @@
+#!/bin/bash
+# this script do zonal average using za
+# for summer and winter mean MLD
+
+
+export CASEN=$1
+export STY=`printf %04d $2`
+export EDY=`printf %04d $3`
+export SSN=$4
+export DATADIR=/glade/u/home/qingli/pwork/data
+export FILE_IN=${DATADIR}/${CASEN}/${CASEN}.pop.h.MLD.${STY}.${EDY}.${SSN}.nc
+echo "FILE_IN=${FILE_IN}"
+export FILE_OUT=${DATADIR}/${CASEN}/za.${CASEN}.pop.h.MLD.${STY}.${EDY}.${SSN}.nc
+if [[ ${CASEN} == *1d* ]] || [[ ${CASEN} == *gx1* ]]; then
+	export GRIDFILE=${DATADIR}/gx16.grids.nc
+else
+	export GRIDFILE=${DATADIR}/gx37.grids.nc
+fi
+
+if [[ ${CASEN} == *1d* ]] || [[ ${CASEN} == *gx1* ]]; then
+	export RMASK=${DATADIR}/region_mask/PacAtlInd_REGION_MASK_gx1v6.nc
+else
+	export RMASK=${DATADIR}/region_mask/PacAtlInd_REGION_MASK_gx3v7.nc
+fi
+export ZA_BASIN_LIST=Global,Pacific,Indian,Atlantic
+
+if [ -e ${FILE_OUT} ]; then
+	rm ${FILE_OUT}
+fi
+
+za -grid_file ${GRIDFILE} -kmt_file ${GRIDFILE} -rmask_file ${RMASK} -o ${FILE_OUT} ${FILE_IN}
+

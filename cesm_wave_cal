@@ -1,0 +1,140 @@
+#!/bin/csh
+# 
+# This script calculate diagnostic field from CESM-WW3 output
+#
+# Li Qing, 20140720
+#
+# 	   20141129, rewrite, add type3
+#	   20150512, add options for 6 hourly climatology output
+
+
+if ( $#argv < 5 || $#argv > 6 ) then
+cat << EOF
+USAGE:
+	cesm_wave_cal [case name] [start year] [end year] [type] [option] [data path]
+		type = 1: Enhancement factor (Misaligned)
+		type = 2: Enhancement factor (Aligned)
+		type = 3: VKE scaling
+		type = 4: Fetch
+		option = monthly or mon: Monthly climatology output
+		option = 6hourly or 6h: 6 hourly climatology output
+		data path = "pwork": data saved in /glade/p/work
+		data path = "scratch": data saved in /glade/scratch
+EOF
+exit -1;
+endif
+
+	set casename	= $1
+	@ yrini = $2
+	@ yrend = $3
+	@ type	= $4
+	set option	= $5
+	if ( $#argv == 6 ) then
+		set dptype	= $6
+		if ( ${dptype} == "pwork" ) then
+			set datapath	= /glade/p/work/qingli/archive/${casename}/wav/hist
+		else if ( ${dptype} == "scratch" ) then
+			set datapath	= /glade/scratch/qingli/archive/${casename}/wav/hist
+		else
+			echo "cesm_wave_cal: error in data path type..."
+			exit -1
+		endif
+	else if ( $#argv == 5) then
+		set datapath	= /glade/scratch/qingli/archive/${casename}/wav/hist
+	endif
+	set datato	= /glade/p/work/qingli/data/${casename}
+	set prefixi	= ${casename}.ww3.hi
+	set tmpdir	= $$
+	set workdir	= /glade/scratch/qingli/tmp
+	set yrini_str	= `printf %04d $yrini`
+	set yrend_str	= `printf %04d $yrend`
+
+	cd $workdir
+	mkdir ${tmpdir}
+	cd ${tmpdir}
+
+	echo "- START -"
+	if ( $type == 1) then
+		set prefixi2	= ehmft
+		set prefixo	= ${prefixi2}.${prefixi}.${yrini_str}.${yrend_str}
+		set NCOSCRIPT = /glade/u/home/qingli/work/nco/enhancement_factor_vr12.nco
+		#if ( $casename =~ *vr12?* ) then
+		#	set NCOSCRIPT = /glade/u/home/qingli/work/nco/enhancement_factor_vr12.nco
+		#else if ( $casename =~ *ms2k ) then
+		#	set NCOSCRIPT = /glade/u/home/qingli/work/nco/enhancement_factor_ms2k.nco
+		#endif
+	endif
+	if ( $type == 2) then
+		set prefixi2	= ehmfta
+		set prefixo	= ${prefixi2}.${prefixi}.${yrini_str}.${yrend_str}
+		set NCOSCRIPT = /glade/u/home/qingli/work/nco/enhancement_factor_vr12-al.nco
+	endif
+	if ( $type == 3) then
+		set prefixi2	= vke
+		set prefixo	= ${prefixi2}.${prefixi}.${yrini_str}.${yrend_str}
+		set NCOSCRIPT = /glade/u/home/qingli/work/nco/vke_vr12.nco
+	endif
+	if ( $type == 4) then
+		set prefixi2	= fetch
+		set prefixo	= ${prefixi2}.${prefixi}.${yrini_str}.${yrend_str}
+		set NCOSCRIPT = /glade/u/home/qingli/work/nco/fetch_clim.nco
+	endif
+
+	if (( $option == monthly ) || ( $option == mon )) then
+		@ totn = ($yrend - $yrini + 1) * 12
+		foreach mm ( 01 02 03 04 05 06 07 08 09 10 11 12 )
+			echo "Month $mm ..."
+			set yr = $yrini
+			@ idx = 1
+			while ( $yr <= $yrend )
+				set yr_str = ` printf %04d $yr `
+				set file_in = ${prefixi}.${yr_str}-${mm}
+				foreach f ( ${datapath}/${file_in}-* )
+					ncap2 -O -v -S ${NCOSCRIPT} ${f} ${prefixi2}.${f:t}
+				end
+				ncea -O -h ${prefixi2}.${file_in}-* ${prefixi2}.${file_in}.nc
+				rm ${prefixi2}.${file_in}-*
+				@ yr ++
+			end
+			ncea -O -h ${prefixi2}.${prefixi}.????-${mm}.nc ${prefixo}.${mm}.nc
+		end
+		ncea -O -h ${prefixo}.??.nc ${prefixo}.nc
+	endif
+	if (( $option == 6hourly ) || ( $option == 6h )) then
+		set file_in = ${prefixi}.${yrini_str}
+		foreach f ( ${datapath}/${file_in}-* )
+			set n = `echo $f | awk '{print length($0)}'`
+			@ mn = $n - 13  # get character position of mm
+			set mm = `echo $f | awk -v ncount=$mn '{print substr($0,ncount,2)}'`
+			@ dn = $n - 10	# get character position of dd
+			set dd = `echo $f | awk -v ncount=$dn '{print substr($0,ncount,2)}'`
+			@ sn = $n - 7	# get character position of sssss
+			set sssss = `echo $f | awk -v ncount=$sn '{print substr($0,ncount,5)}'`
+			set file_out = tmp.${yrini_str}-${mm}-${dd}-${sssss}.nc
+			echo ${file_out}
+			set yr = $yrini
+			while ( $yr <= $yrend )
+				set yr_str = ` printf %04d $yr `
+				set fin = ${datapath}/${prefixi}.${yr_str}-${mm}-${dd}-${sssss}.nc
+				ncap2 -O -v -S ${NCOSCRIPT} ${fin} ${prefixi2}.${fin:t}
+				@ yr ++
+			end
+			ncea -O -h ${prefixi2}.${prefixi}.????-${mm}-${dd}-${sssss}.nc ${prefixo}-${mm}-${dd}-${sssss}.nc
+			rm -f ${prefixi2}.${prefixi}.????-${mm}-${dd}-${sssss}.nc
+		end
+
+	endif
+
+# Move data
+	echo "Moving data to path: $datato ..."
+	if ( ! -e ${datato} ) then
+		mkdir ${datato}
+	endif
+	mv *.nc ${datato}/
+	if ( $? == 0) then
+		cd ..
+		rm -rf ${tmpdir}
+		echo "- FINISHED -"
+	else
+		echo "- NOT FINISHED -"
+	endif

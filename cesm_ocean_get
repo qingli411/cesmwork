@@ -1,0 +1,118 @@
+#! /bin/csh
+# 
+# This script generate one-variable-per-file data from CCEM1 ocean output
+#
+# Li Qing, 20120618
+#
+
+if ( $#argv < 4 || $#argv > 5 ) then
+cat << EOF
+USAGE:
+	cesm_ocean_get [case name] [start year] [end year] [type] [data path]
+	type	= 1: get temp
+	type	= 2: get temp and salt
+	type	= 3: get temp,vvel,uvel,pd
+	type	= 4: get sea ice fraction
+	type	= 5: get ocean transport
+	type	= 6: mixed layer depth
+	data path = "pwork": data saved in /glade/p/work
+	data path = "scratch": data saved in /glade/scratch
+EOF
+exit -1;
+endif
+
+	set casename	= $1
+	@ yrini = $2
+	@ yrend = $3
+	set type = $4
+	if ( $#argv == 5 ) then
+		set dptype	= $5
+		if ( ${dptype} == "pwork" ) then
+			set datapath	= /glade/p/work/qingli/archive/${casename}/ocn/hist
+		else if ( ${dptype} == "scratch" ) then
+			set datapath	= /glade/scratch/qingli/archive/${casename}/ocn/hist
+		else
+			echo "cesm_ocean_get: error in data path type..."
+			exit -1
+		endif
+	else if ( $#argv == 4) then
+		set datapath	= /glade/scratch/qingli/archive/${casename}/ocn/hist
+	endif
+
+	set datato	= /glade/p/work/qingli/data/${casename}
+
+	if ( $type == 1) then
+		set var = TEMP
+		set vars = "TLONG,TLAT,TEMP"
+	else if ( $type == 2) then
+		set var = TS
+		set vars = "TEMP,SALT"
+	else if ( $type == 3) then
+		set var = VTD
+		set vars = "TEMP,VVEL,UVEL,PD,SALT,RHO,ULONG,ULAT,TLONG,TLAT"
+	else if ( $type == 4) then
+		set var = IFRAC
+		set vars = "IFRAC"
+	else if ( $type == 5) then
+		set var = TRANS
+		set vars = "MOC,N_HEAT,N_SALT,moc_components,transport_components,transport_regions,moc_z,lat_aux_grid,time"
+	else if ( $type == 6) then
+		set var = MLD
+		set vars = "HBLT,HMXL,HMXL_DR"
+	endif
+
+	set prefixi	= ${casename}.pop.h
+	set prefixo	= ${casename}.pop.h
+	set workdir	= /glade/scratch/qingli/tmp
+	set tmpdir	= $$
+	set yrini_str	= `printf %04d $yrini`
+	set yrend_str	= `printf %04d $yrend`
+	set outname 	= ${prefixo}.${var}.${yrini_str}.${yrend_str}
+
+	echo "- STARTED -"
+	echo "Input Directory: $datapath"
+	echo "Output Directory: $datato"
+	
+	cd $workdir
+	mkdir ${tmpdir}
+	cd ${tmpdir}
+
+	echo " Extracting Variable: $var ..."   
+	foreach mon ( 01 02 03 04 05 06 07 08 09 10 11 12 )
+	#foreach mon ( 10 11 12 )
+		echo "Month $mon"
+		set yr = $yrini
+		while ( $yr <= $yrend )
+			echo "Year $yr ..."
+			set yr_str = ` printf %04d $yr `
+			set file_in = ${datapath}/${prefixi}.${yr_str}-${mon}.nc
+			set file_o = tmp.${var}.${yr_str}.${mon}.nc
+			ncks -O -h -v $vars $file_in $file_o
+		        echo " $file_in --> $file_o "
+			@ yr ++
+		end
+		if ( $type == 6 ) then
+			echo "Concatenating data ..."
+			ncrcat -O -h tmp.$var.*.$mon.* $outname.$mon.nc
+		endif
+	end
+	if ( $type != 6 ) then
+		echo "Concatenating data ..."
+		ncrcat -O -h tmp.$var.* $outname.nc
+	endif
+
+# Move data
+	echo "Moving data to path: $datato ..."
+	if ( ! -e ${datato} ) then
+		mkdir ${datato}
+	endif
+	mv $outname*.nc ${datato}/
+	echo "Removing tmp data ..."
+	rm -f tmp.$var.*.nc
+	if ( $? == 0) then
+		cd ..
+		rm -rf ${tmpdir}
+		echo "- FINISHED -"
+	else
+		echo "- NOT FINISHED -"
+	endif

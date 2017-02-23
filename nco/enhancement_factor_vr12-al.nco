@@ -1,0 +1,25 @@
+/*
+  Enhancement factor for the turbulent velocity scale in KPP
+  ref: Van Roekel et al., 2012
+  Aligned case
+
+  Qing Li, 20151117
+
+ INPUT:
+      LASLPJ: La_{SL,proj}
+ OUTPUT:
+      EHMFT: Enhancement factor
+*/
+
+//-----------------------------------------------------------------------
+//---- constants
+*vr12_c1 = 3.1;
+*vr12_c2 = 5.4;
+
+//-----------------------------------------------------------------------
+//---- enhancement factor
+*la = LASLPJ;
+EHMFT = sqrt(1+(vr12_c1*la)^(-2)+(vr12_c2*la)^(-4));  
+
+EHMFT@long_name = "Enhancement factor (Aligned)";
+EHMFT@units     = "1";

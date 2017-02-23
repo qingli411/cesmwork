@@ -1,0 +1,27 @@
+/*
+  Calculate climatology fetch from the WW3 Stokes drift and the 
+  wind forcing to optimize the prediction with JONSWAP Stokes
+  drift 
+  ref: Webb and Fox-Kemper, 2011
+
+  Qing Li, 20141129
+
+ INPUT:
+      USSX: x component of surface Stokes drift
+      USSY: y component of surface Stokes drift
+      UAX: x component of surface wind
+      UAY: y component of surface wind
+ OUTPUT:
+      FETCH: Diagnosed fetch
+*/
+
+//-----------------------------------------------------------------------
+*c0 = 8.736e-3; 
+*c1 = 17./150.;
+*c2 = 58./75.;
+USS = sqrt(USSX^2+USSY^2);
+U10 = sqrt(UAX^2+UAY^2);
+
+FETCH = USS/c0/U10^c2;  
+FETCH@long_name = "Fetch factor (fetch^(17/150))";
+FETCH@units     = "1";
