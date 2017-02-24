@@ -1,126 +1,109 @@
 #!/bin/csh
-# 
+#
 # This script get time-averaged data from CCSM ocean output
 #
-# Li Qing, 20120212
-#
+# Qing Li, 20120212
+#          20170223, get the paths from the file set_env
 
-if ( $#argv < 4 || $#argv > 5) then
+if ( $#argv != 4 ) then
 cat << EOF
 USAGE:
-	cesm_ocean_avg [case name] [start year] [end year] [type] [data path]
+	cesm_ocean_avg [case name] [start year] [end year] [type]
 		type = 1: mean
 		type = 2: annual cycle
-		data path = "pwork": data saved in /glade/p/work
-		data path = "scratch": data saved in /glade/scratch
 EOF
 exit -1;
 endif
 
-	set casename	= $1
-	@ yrini = $2
-	@ yrend = $3
-	@ type	= $4
-	if ( $#argv == 5 ) then
-		set dptype	= $5
-		if ( ${dptype} == "pwork" ) then
-			set datapath	= /glade/p/work/qingli/archive/${casename}/ocn/hist
-		else if ( ${dptype} == "scratch" ) then
-			set datapath	= /glade/scratch/qingli/archive/${casename}/ocn/hist
-		else
-			echo "cesm_ocean_avg: error in data path type..."
-			exit -1
+set casename	= $1
+@ yrini = $2
+@ yrend = $3
+@ type	= $4
+
+# set datadir, outdir, workdir
+source ./set_env
+
+if ( $type == 1) then
+	set prefixo	= ${casename}.pop.avgh
+else if ( $type == 2) then
+	set prefixo	= ${casename}.pop.acyc
+endif
+
+set tmpdir	= $$
+set prefixi	= ${casename}.pop.h
+set yrini_str	= `printf %04d $yrini`
+set yrend_str	= `printf %04d $yrend`
+set outfile	= ${prefixo}.${yrini_str}.${yrend_str}.nc
+
+echo "- STARTED -"
+echo "Input Directory: $datadir"
+echo "Output Directory: $outdir"
+
+cd $workdir
+mkdir ${tmpdir}
+cd ${tmpdir}
+
+if ( ${type} == 1) then
+	echo " Creating symbolic link to input files ..."
+	set yr = $yrini
+	@ idx = 1
+	while ( ${yr} <= ${yrend} )
+		echo "Year ${yr} ..."
+		set yr_str = ` printf %04d $yr `
+		set idx_str = ` printf %06d $idx `
+		set file_in = ${datadir}/${prefixi}.${yr_str}.nc
+		if ( ! -e ${file_in} ) then
+			ncra -O -h ${datadir}/${prefixi}.${yr_str}-??.nc ${file_in}
 		endif
-	else if ( $#argv == 4) then
-		set datapath	= /glade/scratch/qingli/archive/${casename}/ocn/hist
-	endif
-	set datato	= /glade/p/work/qingli/data/${casename}
-
-	if ( $type == 1) then
-		set prefixo	= ${casename}.pop.avgh
-	else if ( $type == 2) then
-		set prefixo	= ${casename}.pop.acyc
-	endif
-
-	set prefixi	= ${casename}.pop.h
-
-	set tmpdir	= $$
-	set workdir	= /glade/scratch/qingli/tmp
-	set yrini_str	= `printf %04d $yrini`
-	set yrend_str	= `printf %04d $yrend`
-	set outfile	= ${prefixo}.${yrini_str}.${yrend_str}.nc
-
-
-	echo "- STARTED -"
-	echo "Input Directory: $datapath"
-	echo "Output Directory: $datato"
-	
-	cd $workdir
-	mkdir ${tmpdir}
-	cd ${tmpdir}
-
-	if ( ${type} == 1) then
-		echo " Creating symbolic link to input files ..."   
-		set yr = $yrini
+		set file_o = tmp.${idx_str}.nc
+		ln -sf ${file_in} ${file_o}
+		echo " Linking ${file_in} to ${file_o} ... "
+		@ idx ++
+		@ yr ++
+	end
+	@ totn = ${idx} - 1
+	echo "Averaging along the time dimension ..."
+	ncra -O -h -n ${totn},6,1 tmp.000001.nc out.nc
+	echo "Removing tmp links ..."
+	rm -f tmp.*.nc
+else if ( ${type} == 2) then
+	@ totn = (${yrend} - ${yrini} + 1)
+	echo " Creating symbolic link to ${totn} input files ..."
+	foreach mon ( 01 02 03 04 05 06 07 08 09 10 11 12 )
+	echo "Month ${mon} ..."
+		set yr = ${yrini}
 		@ idx = 1
 		while ( ${yr} <= ${yrend} )
-			echo "Year ${yr} ..."
 			set yr_str = ` printf %04d $yr `
 			set idx_str = ` printf %06d $idx `
-			set file_in = ${datapath}/${prefixi}.${yr_str}.nc
-			if ( ! -e ${file_in} ) then
-				ncra -O -h ${datapath}/${prefixi}.${yr_str}-??.nc ${file_in}
-			endif
+			set file_in = ${datadir}/${prefixi}.${yr_str}-${mon}.nc
 			set file_o = tmp.${idx_str}.nc
-			ln -sf ${file_in} ${file_o}
 			echo " Linking ${file_in} to ${file_o} ... "
+			ln -sf ${file_in} ${file_o}
 			@ idx ++
 			@ yr ++
 		end
-		@ totn = ${idx} - 1
 		echo "Averaging along the time dimension ..."
-		ncra -O -h -n ${totn},6,1 tmp.000001.nc out.nc
+		ncra -O -h -n ${totn},6,1 tmp.000001.nc out.${mon}.nc
 		echo "Removing tmp links ..."
 		rm -f tmp.*.nc
-
-	else if ( ${type} == 2) then
-		@ totn = (${yrend} - ${yrini} + 1)
-		echo " Creating symbolic link to ${totn} input files ..."   
-		foreach mon ( 01 02 03 04 05 06 07 08 09 10 11 12 )
-		echo "Month ${mon} ..."
-			set yr = ${yrini}
-			@ idx = 1
-			while ( ${yr} <= ${yrend} )
-				set yr_str = ` printf %04d $yr `
-				set idx_str = ` printf %06d $idx `
-				set file_in = ${datapath}/${prefixi}.${yr_str}-${mon}.nc
-				set file_o = tmp.${idx_str}.nc
-				ln -sf ${file_in} ${file_o}
-			        echo " Linking ${file_in} to ${file_o} ... "
-				@ idx ++
-				@ yr ++
-			end
-			echo "Averaging along the time dimension ..."
-			ncra -O -h -n ${totn},6,1 tmp.000001.nc out.${mon}.nc
-			echo "Removing tmp links ..."
-			rm -f tmp.*.nc
-		end
-		echo "Concatenating data ..."
-		ncrcat -O -h out.*.nc out.nc
-		echo "Removing out.XX.nc files ..."
-		rm -f out.*.nc
-	endif
+	end
+	echo "Concatenating data ..."
+	ncrcat -O -h out.*.nc out.nc
+	echo "Removing out.XX.nc files ..."
+	rm -f out.*.nc
+endif
 
 # Move data
-	echo "Moving data to path: $datato ..."
-	if ( ! -e ${datato} ) then
-		mkdir ${datato}
-	endif
-	mv out.nc ${datato}/${outfile}
-	if ( $? == 0) then
-		cd ..
-		rm -rf ${tmpdir}
-		echo "- FINISHED -"
-	else
-		echo "- NOT FINISHED -"
-	endif
+echo "Moving data to path: $outdir ..."
+if ( ! -e ${outdir} ) then
+	mkdir ${outdir}
+endif
+mv out.nc ${outdir}/${outfile}
+if ( $? == 0) then
+	cd ..
+	rm -rf ${tmpdir}
+	echo "- FINISHED -"
+else
+	echo "- NOT FINISHED -"
+endif

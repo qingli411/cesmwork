@@ -12,7 +12,7 @@ export NCO_UTIL=/glade/u/home/qingli/work/nco
 export POPHIST=${DATADIR}/${CASEN}/${CASEN}.pop.avgh.${STY}.${EDY}.nc
 
 if [ ! -e ${POPHIST} ]; then
-	cesm_ocean_avg $1 $2 $3 1 scratch
+	cesm_ocean_avg $1 $2 $3 1
 fi
 if [ $? != 0 ]; then
 	echo "No POP History File"

@@ -1,7 +1,6 @@
 #! /bin/csh
 #
-# This script generate global averaged variables from annual
-# averaged POP output
+# This script get variables from annual mean POP output
 #
 # Qing Li, 20150713
 #
@@ -9,11 +8,8 @@
 if ( $#argv != 4 ) then
 cat << EOF
 USAGE:
-	cesm_ts_ocean [case name] [start year] [end year] [type]
-	type	= 1: get temperature
-	type	= 2: get salinity
-	type	= 3: get mixed layer depth
-	type	= 4: get net heat flux
+	cesm_ocean_get_ann [case name] [start year] [end year] [type]
+		type = 1: get ocean transport
 EOF
 exit -1;
 endif
@@ -21,35 +17,25 @@ endif
 set casename	= $1
 @ yrini = $2
 @ yrend = $3
-@ type = $4
+set type = $4
 
 # set datadir, outdir, workdir
 source ./set_env
 
-if ( $type == 1) then
-	set var		= "GATEMP"
-	set vars	= "TEMP"
-	set wgt		= "TAREA"
-else if ( $type == 2) then
-	set var		= "GASALT"
-	set vars	= "SALT"
-	set wgt		= "TAREA"
-else if ( $type == 3) then
-	set var		= "GAMLD"
-	set vars	= "HMXL_DR,HMXL,HBLT"
-	set wgt		= "TAREA"
-else if ( $type == 4) then
-	set var		= "GASHF"
-	set vars	= "SHF"
-	set wgt		= "TAREA"
+if ( $type == 1 ) then
+	set var = TRANS
+	set vars = "MOC,N_HEAT,N_SALT,moc_components,transport_components,transport_regions,moc_z,lat_aux_grid,time"
+else
+	echo "Unsupported type"
+	exit -1
 endif
 
 set prefixi	= ${casename}.pop.h
 set prefixo	= ${casename}.pop.h
+set tmpdir	= $$
 set yrini_str	= `printf %04d $yrini`
 set yrend_str	= `printf %04d $yrend`
-set outfile	= ${prefixo}.${var}.${yrini_str}.${yrend_str}.ann.nc
-set tmpdir	= $$
+set outfile 	= ${prefixo}.${var}.${yrini_str}.${yrend_str}.ann
 
 echo "- STARTED -"
 echo "Input Directory: $datadir"
@@ -66,22 +52,22 @@ while ( $yr <= $yrend )
 	set yr_str = ` printf %04d $yr `
 	set file_in = ${datadir}/${prefixi}.${yr_str}.nc
 	set file_o = tmp.${var}.${yr_str}.nc
-	ncwa -h -O -w $wgt -a nlat,nlon -v $vars $file_in $file_o
+	ncks -O -h -v $vars $file_in $file_o
 	echo " $file_in --> $file_o "
 	@ yr ++
 end
 echo "Concatenating data ..."
-ncrcat -O -h tmp.$var.* out.$var.nc
+ncrcat -O -h tmp.$var.* $outfile.nc
 
 # Move data
 echo "Moving data to path: $outdir ..."
 if ( ! -e ${outdir} ) then
 	mkdir ${outdir}
 endif
-mv out.${var}.nc ${outdir}/${outfile}
+mv $outfile*.nc ${outdir}/
+echo "Removing tmp data ..."
+rm -f tmp.$var.*.nc
 if ( $? == 0) then
-	echo "Removing tmp data ..."
-	rm -f tmp.$var.*.nc
 	cd ..
 	rm -rf ${tmpdir}
 	echo "- FINISHED -"

@@ -1,101 +1,86 @@
 #! /bin/csh
-# 
-# This script generate global averaged variables from CCEM1 ocean output
 #
-# Li Qing, 20120719
+# This script generate global averaged variables from CCSM ocean output
+#
+# Qing Li, 20120719
 #
 
-if ( $#argv <= 4 || $#argv > 5 ) then
+if ( $#argv != 4 ) then
 cat << EOF
 USAGE:
-	cesm_ocean_ts [case name] [start year] [end year] [type] [data path]
+	cesm_ocean_ts [case name] [start year] [end year] [type]
 	type	= 1: get temperature
 	type	= 2: get salinity
 	type	= 3: get mixed layer depth
-	data path = "pwork": data saved in /glade/p/work
-	data path = "scratch": data saved in /glade/scratch
 EOF
 exit -1;
 endif
 
-	set casename	= $1
-	@ yrini = $2
-	@ yrend = $3
-	@ type	= $4
-	if ( $#argv == 5 ) then
-		set dptype	= $5
-		if ( ${dptype} == "pwork" ) then
-			set datapath	= /glade/p/work/qingli/archive/${casename}/ocn/hist
-		else if ( ${dptype} == "scratch" ) then
-			set datapath	= /glade/scratch/qingli/archive/${casename}/ocn/hist
-		else
-			echo "cesm_ocean_ts: error in data path type..."
-			exit -1
-		endif
-	else if ( $#argv == 4) then
-		set datapath	= /glade/scratch/qingli/archive/${casename}/ocn/hist
-	endif
+set casename	= $1
+@ yrini = $2
+@ yrend = $3
+@ type	= $4
 
-	set datato	= /glade/p/work/qingli/data/${casename}
+# set datadir, outdir, workdir
+source ./set_env
 
-	if ( $type == 1) then
-		set var		= "GATEMP"
-		set vars	= "TEMP"
-		set wgt		= "TAREA"
-	else if ( $type == 2) then
-		set var		= "GASALT"
-		set vars	= "SALT"
-		set wgt		= "TAREA"
-	else if ( $type == 3) then
-		set var		= "GAMLD"
-		set vars	= "HMXL_DR,HMXL,HBLT"
-		set wgt		= "TAREA"
-	endif
+if ( $type == 1) then
+	set var		= "GATEMP"
+	set vars	= "TEMP"
+	set wgt		= "TAREA"
+else if ( $type == 2) then
+	set var		= "GASALT"
+	set vars	= "SALT"
+	set wgt		= "TAREA"
+else if ( $type == 3) then
+	set var		= "GAMLD"
+	set vars	= "HMXL_DR,HMXL,HBLT"
+	set wgt		= "TAREA"
+endif
 
-	set prefixi	= ${casename}.pop.h
-	set prefixo	= ${casename}.pop.h
-	set yrini_str	= `printf %04d $yrini`
-	set yrend_str	= `printf %04d $yrend`
-	set outfile	= ${prefixo}.${var}.${yrini_str}.${yrend_str}.nc
-	set workdir	= /glade/scratch/qingli/tmp
-	set tmpdir	= $$
+set prefixi	= ${casename}.pop.h
+set prefixo	= ${casename}.pop.h
+set yrini_str	= `printf %04d $yrini`
+set yrend_str	= `printf %04d $yrend`
+set outfile	= ${prefixo}.${var}.${yrini_str}.${yrend_str}.nc
+set tmpdir	= $$
 
-	echo "- STARTED -"
-	echo "Input Directory: $datapath"
-	echo "Output Directory: $datato"
-	
-	cd $workdir
-	mkdir ${tmpdir}
-	cd ${tmpdir}
+echo "- STARTED -"
+echo "Input Directory: $datadir"
+echo "Output Directory: $outdir"
 
-	echo " Extracting Variable: $var ..."   
-	set yr = $yrini
-	while ( $yr <= $yrend )
-	echo "Year $yr ..."
-		foreach mon ( 01 02 03 04 05 06 07 08 09 10 11 12 )
-			set yr_str = ` printf %04d $yr `
-			set file_in = ${datapath}/${prefixi}.${yr_str}-${mon}.nc
-			set file_o = tmp.${var}.${yr_str}.${mon}.nc
-			ncwa -h -O -w $wgt -a nlat,nlon -v $vars $file_in $file_o
-		        echo " $file_in --> $file_o "
-		end
-	@ yr ++
+cd $workdir
+mkdir ${tmpdir}
+cd ${tmpdir}
+
+echo " Extracting Variable: $var ..."
+set yr = $yrini
+while ( $yr <= $yrend )
+echo "Year $yr ..."
+	foreach mon ( 01 02 03 04 05 06 07 08 09 10 11 12 )
+		set yr_str = ` printf %04d $yr `
+		set file_in = ${datadir}/${prefixi}.${yr_str}-${mon}.nc
+		set file_o = tmp.${var}.${yr_str}.${mon}.nc
+		ncwa -h -O -w $wgt -a nlat,nlon -v $vars $file_in $file_o
+		echo " $file_in --> $file_o "
 	end
-	echo "Concatenating data ..."
-	ncrcat -O -h tmp.$var.* out.$var.nc
+@ yr ++
+end
+echo "Concatenating data ..."
+ncrcat -O -h tmp.$var.* out.$var.nc
 
 # Move data
-	echo "Moving data to path: $datato ..."
-	if ( ! -e ${datato} ) then
-		mkdir ${datato}
-	endif
-	mv out.${var}.nc ${datato}/${outfile}
-	if ( $? == 0) then
-		echo "Removing tmp data ..."
-		rm -f tmp.$var.*.nc
-		cd ..
-		rm -rf ${tmpdir}
-		echo "- FINISHED -"
-	else
-		echo "- NOT FINISHED -"
-	endif
+echo "Moving data to path: $outdir ..."
+if ( ! -e ${outdir} ) then
+	mkdir ${outdir}
+endif
+mv out.${var}.nc ${outdir}/${outfile}
+if ( $? == 0) then
+	echo "Removing tmp data ..."
+	rm -f tmp.$var.*.nc
+	cd ..
+	rm -rf ${tmpdir}
+	echo "- FINISHED -"
+else
+	echo "- NOT FINISHED -"
+endif
