@@ -1,12 +1,9 @@
 # set the environment variables. In csh syntax
-# sourced by 
-# 	cesm_ocean_avg
-# 	cesm_ocean_get
-# 	cesm_ocean_ts
-# 	cesm_ocean_ts_ann
 # path of the monthly history files
 set datadir = /glade/p/work/qingli/archive/${casename}/ocn/hist
 # path of the output files
 set outdir  = /glade/p/work/qingli/data/${casename}
-# path of a temporary working directory 
+# path of a temporary working directory
 set workdir = /glade/scratch/qingli/tmp
+# path of the nco script
+set nco_util = /glade/u/home/qingli/work/nco

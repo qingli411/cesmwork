@@ -1,33 +1,39 @@
-#!/bin/bash
-# this script calculate pCFC using NCO 
+#!/bin/csh
+# this script calculate pCFC using NCO
 #
 # Qing Li, 141212
 
-export CASEN=$1
-export STY=`printf %04d $2`
-export EDY=`printf %04d $3`
+if ( $#argv != 2 ) then
+cat << EOF
+USAGE:
+	cesm_ocean_pcfc_get [case name] [year]
+EOF
+exit -1;
+endif
 
-export DATADIR=/glade/u/home/qingli/pwork/data
-export NCO_UTIL=/glade/u/home/qingli/work/nco
-export POPHIST=${DATADIR}/${CASEN}/${CASEN}.pop.avgh.${STY}.${EDY}.nc
+set casename = $1
+set sty = `printf %04d $2`
 
-if [ ! -e ${POPHIST} ]; then
+# set outdir, nco_util
+source ./set_env
+
+set pophist = ${outdir}/${casename}/${casename}.pop.avgh.${sty}.${sty}.nc
+
+if ( ! -e ${pophist} ) then
 	cesm_ocean_avg $1 $2 $3 1
-fi
-if [ $? != 0 ]; then
+endif
+if ( $? != 0 ) then
 	echo "No POP History File"
 	exit -1;
-fi
+endif
 
-echo "FILE_IN=${POPHIST}"
+echo "Input file: ${pophist}"
 
-for CFC in pcfc11 pcfc12; do
-	export FILE_OUT1=${DATADIR}/${CASEN}/${CASEN}.${CFC}.${STY}.${EDY}.nc
-	if [ -e ${FILE_OUT1} ]; then
-		rm ${FILE_OUT1}
-	fi
-
-	ncap2 -A -v -S ${NCO_UTIL}/${CFC}.nco ${POPHIST} ${FILE_OUT1}
-
-done
+foreach cfc ( pcfc11 pcfc12 )
+	set file_out = ${outdir}/${casename}/${casename}.${cfc}.${sty}.${sty}.nc
+	if ( -e ${file_out} ) then
+		rm ${file_out}
+	endif
+	ncap2 -A -v -S ${nco_util}/${cfc}.nco ${pophist} ${file_out}
+end
 
